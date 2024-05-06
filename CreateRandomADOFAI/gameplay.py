@@ -1,32 +1,36 @@
 from CreateRandomADOFAI.adofai_exceptions import AngleException, SetSpeedException, PauseBeatsException
 from random import randint, uniform, choice
 import CreateRandomADOFAI.handler
+from datetime import datetime
 import shutil
+import config
 import json
 
-protected_start = 5
-decimal_count = 6
-
-
-INVIOLATE_TILES = [i for i in range(0, 5)]
+INVIOLATE_TILES = [i for i in range(0, config.protected_start)]
 
 
 class Gameplay:
     def __init__(self,
-                 name: str = "test_level",
+                 name: str = config.default_name,
                  tiles_count: int = 10,
-                 default_speed: float = 150):
+                 default_speed: float = 150,
+                 add_timestamp: bool = True):
         self.name = name
         self.tiles_count = tiles_count
         self.default_speed = default_speed
+        self.timestamp = add_timestamp
+
+        if add_timestamp:
+            self.name = (f"{self.name}_{str(datetime.now())}".replace(" " and "-" and ":", "_"))
+
 
     def generate_level(self,
                        min_angle: float = -359.999999,
                        max_angle: int = 359.999999) -> None:
         """
         Generates a tiles for level. MUST BE FIRST ON CREATE PROCESS!!!
-        :param min_angle: min angle from -359 to 359
-        :param max_angle: max angle from -359 to 359
+        :param min_angle: min angle from -359.999999 to 359.999999
+        :param max_angle: max angle from -359.999999 to 359.999999
         :raise AngleException: something wrong with angles
         :return:
         """
@@ -34,24 +38,26 @@ class Gameplay:
         if min_angle > max_angle:
             raise AngleException("Invalid value. The min value cannot be greater than th max value")
         elif min_angle <= -360 or max_angle >= 360:
-            raise AngleException("Invalid value. The values cannot be greater than or less than 359 deg. and -359 deg.")
+            raise AngleException("Invalid value. "
+                                 "The values cannot be greater than or less than 359.999999 deg. and -359.999999 deg.")
 
-        list_tiles = []
+        list_tiles = [0]
 
         for i in range(self.tiles_count):
-            num = uniform(round(min_angle, decimal_count), round(max_angle, decimal_count))
+            num = round(uniform(round(min_angle, config.decimal_count), round(max_angle, config.decimal_count)), config.decimal_count)
             list_tiles.append(num)
 
-        shutil.copy("../src/template.json", f"{self.name}.adofai")
+        shutil.copy("../src/template.json", f"../levels/{self.name}.adofai")
 
-        with open(f"{self.name}.adofai", "r+") as f:
+        with open(f"../levels/{self.name}.adofai", "r+") as f:
             level = json.load(f)
             level["angleData"] = list_tiles
             f.seek(0)
             json.dump(level, f, indent=4)
             f.truncate()
 
-        print("Tiles:", list_tiles)
+        print("Path:", f"../levels/{self.name}.adofai")
+        print("  Tiles:", str(list_tiles[:12]).strip("]") + ", ..." + "]")
 
     def add_twirls(self) -> None:
         """
@@ -65,14 +71,14 @@ class Gameplay:
             if num == 8:
                 list_twirls.append({"floor": i, "eventType": "Twirl"})
 
-        with open(f"{self.name}.adofai", 'r+') as f:
+        with open(f"../levels/{self.name}.adofai", 'r+') as f:
             data = json.load(f)
             data["actions"].extend(list_twirls)
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
 
-        print("Twirls:", list_twirls)
+        print("  Twirls:", str(list_twirls[:4]).strip("]") + ", ..." + "]")
 
     def add_set_speed(self,
                       speed_type: str = "bpm",
@@ -107,13 +113,13 @@ class Gameplay:
 
             type_choice = choice(["Bpm", "Multiplier"])
             bpm_random = randint(min_bpm, max_bpm)
-            multiplier_random = round(uniform(min_multiplier, max_multiplier), decimal_count)
-            angle_random = round(uniform(min_angle, max_angle), decimal_count)
+            multiplier_random = round(uniform(min_multiplier, max_multiplier), config.decimal_count)
+            angle_random = round(uniform(min_angle, max_angle), config.decimal_count)
 
-            min_multiplier = round(min_multiplier, decimal_count)
-            max_multiplier = round(max_multiplier, decimal_count)
-            min_angle = round(min_angle, decimal_count)
-            max_angle = round(max_angle, decimal_count)
+            min_multiplier = round(min_multiplier, config.decimal_count)
+            max_multiplier = round(max_multiplier, config.decimal_count)
+            min_angle = round(min_angle, config.decimal_count)
+            max_angle = round(max_angle, config.decimal_count)
 
             num = randint(0, 8)
 
@@ -146,20 +152,21 @@ class Gameplay:
                 else:
                     raise SetSpeedException("Invalid type. Use 'bpm', 'multiplier' or 'random'.")
 
-        with open(f"{self.name}.adofai", 'r+') as f:
+        with open(f"../levels/{self.name}.adofai", "r+") as f:
             data = json.load(f)
             data["actions"].extend(list_speeds)
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
 
-        print("Set_speed:", list_speeds)
+        print("  Set Speed:", str(list_speeds[:2]).strip("]") + ", ..." + "]")
 
     def add_beats_pause(self,
                         min_duration: float = 1,
                         max_duration: float = 2,
                         min_countdownTicks: int = 0,
-                        max_countdownTicks: int = 0,) -> None:
+                        max_countdownTicks: int = 0,
+                        angle_correction_dir: int | list = -1) -> None:
 
         """
         Add event 'Pause Beats' to level
@@ -167,6 +174,8 @@ class Gameplay:
         :param max_duration: max duration to event
         :param min_countdownTicks: min duration of  to event
         :param max_countdownTicks: max duration to event
+        :param angle_correction_dir: Angle correction. Must be -1, 0, 1. OTHER NUMBERS RETURNS EXCEPTION.
+        :raise PauseBeatsException: default exception.
         :return:
         """
 
@@ -176,7 +185,7 @@ class Gameplay:
         if max_countdownTicks > 12:
             raise PauseBeatsException("Invalid countdown ticks value. Value cannot be greater 12")
 
-        if angleCorrectionDir != -1 and angleCorrectionDir != 0 and angleCorrectionDir != 1:
+        if angle_correction_dir != -1 and angle_correction_dir != 0 and angle_correction_dir != 1:
             raise PauseBeatsException("Invalid angle correction value. Value must be -1 or 0 or 1")
 
         list_pauses = []
@@ -200,11 +209,11 @@ class Gameplay:
             else:
                 pass
 
-        with open(f"{self.name}.adofai", 'r+') as f:
+        with open(f"../levels/{self.name}.adofai", 'r+') as f:
             data = json.load(f)
             data["actions"].extend(list_pauses)
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
 
-        print("BOP:", list_pauses)
+        print("  Pause Beats:", str(list_pauses[:2]).strip("]") + ", ..." + "]")

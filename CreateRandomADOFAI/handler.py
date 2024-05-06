@@ -6,7 +6,6 @@ with open('../src/eases.txt') as f:
 
 def eases_find(ease_find: str):
     """
-
     :param ease_find: ease for find. Can be 'In', 'Out', 'In-Out' or name of ease, for example: 'Sine', 'In-Out Sine'
     :return:
     """
