@@ -2,6 +2,7 @@ from CreateRandomADOFAI.adofai_exceptions import AngleException, SetSpeedExcepti
 from random import randint, uniform, choice
 import CreateRandomADOFAI.handler
 from datetime import datetime
+from CreateRandomADOFAI.event_objects import add_to_file, add_twirls, add_set_speed, add_pause_beats
 import shutil
 import config
 import json
@@ -23,7 +24,6 @@ class Gameplay:
         if add_timestamp:
             self.name = (f"{self.name}_{str(datetime.now())}".replace(" " and "-" and ":", "_"))
 
-
     def generate_level(self,
                        min_angle: float = -359.999999,
                        max_angle: int = 359.999999) -> None:
@@ -44,17 +44,14 @@ class Gameplay:
         list_tiles = [0]
 
         for i in range(self.tiles_count):
-            num = round(uniform(round(min_angle, config.decimal_count), round(max_angle, config.decimal_count)), config.decimal_count)
+            num = round(uniform(round(min_angle, config.decimal_count),
+                                round(max_angle, config.decimal_count)),
+                        config.decimal_count)
             list_tiles.append(num)
 
         shutil.copy("../src/template.json", f"../levels/{self.name}.adofai")
 
-        with open(f"../levels/{self.name}.adofai", "r+") as f:
-            level = json.load(f)
-            level["angleData"] = list_tiles
-            f.seek(0)
-            json.dump(level, f, indent=4)
-            f.truncate()
+        add_to_file(self.name, list_tiles, "angleData")
 
         print("Path:", f"../levels/{self.name}.adofai")
         print("  Tiles:", str(list_tiles[:12]).strip("]") + ", ..." + "]")
@@ -69,14 +66,9 @@ class Gameplay:
         for i in range(self.tiles_count):
             num = randint(0, 8)
             if num == 8:
-                list_twirls.append({"floor": i, "eventType": "Twirl"})
+                list_twirls.append(add_twirls(i))
 
-        with open(f"../levels/{self.name}.adofai", 'r+') as f:
-            data = json.load(f)
-            data["actions"].extend(list_twirls)
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+        add_to_file(self.name, list_twirls, "actions")
 
         print("  Twirls:", str(list_twirls[:4]).strip("]") + ", ..." + "]")
 
@@ -127,37 +119,17 @@ class Gameplay:
                 pass
             else:
                 if str(speed_type.lower()) == "bpm" and num == 8:
-                    list_speeds.append({"floor": i,
-                                        "eventType": "SetSpeed",
-                                        "speedType": "Bpm",
-                                        "beatsPerMinute": bpm_random,
-                                        "bpmMultiplier": 1,
-                                        "angleOffset": angle_random})
+                    list_speeds.append(add_set_speed(i, "Bpm", bpm_random, multiplier_random, angle_random))
                 elif speed_type.lower() == "multiplier" and num == 8:
-                    list_speeds.append({"floor": i,
-                                        "eventType": "SetSpeed",
-                                        "speedType": "Multiplier",
-                                        "beatsPerMinute": 100,
-                                        "bpmMultiplier": multiplier_random,
-                                        "angleOffset": angle_random})
+                    list_speeds.append(add_set_speed(i, "Multiplier", bpm_random, multiplier_random, angle_random))
                 elif speed_type.lower() == "random" and num == 8:
-                    list_speeds.append({"floor": i,
-                                        "eventType": "SetSpeed",
-                                        "speedType": type_choice,
-                                        "beatsPerMinute": bpm_random,
-                                        "bpmMultiplier": multiplier_random,
-                                        "angleOffset": angle_random})
+                    list_speeds.append(add_set_speed(i, type_choice, bpm_random, multiplier_random, angle_random))
                 elif num != 8:
                     pass
                 else:
                     raise SetSpeedException("Invalid type. Use 'bpm', 'multiplier' or 'random'.")
 
-        with open(f"../levels/{self.name}.adofai", "r+") as f:
-            data = json.load(f)
-            data["actions"].extend(list_speeds)
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+        add_to_file(self.name, list_speeds, "actions")
 
         print("  Set Speed:", str(list_speeds[:2]).strip("]") + ", ..." + "]")
 
@@ -201,19 +173,13 @@ class Gameplay:
                 if i in INVIOLATE_TILES:
                     pass
                 else:
-                    list_pauses.append({"floor": i,
-                                        "eventType": "Pause",
-                                        "duration": duration_random,
-                                        "countdownTicks": countdown_ticks_random,
-                                        "angleCorrectionDir": angle_correction_dir_random})
+                    list_pauses.append(add_pause_beats(i,
+                                                       duration_random,
+                                                       countdown_ticks_random,
+                                                       angle_correction_dir_random))
             else:
                 pass
 
-        with open(f"../levels/{self.name}.adofai", 'r+') as f:
-            data = json.load(f)
-            data["actions"].extend(list_pauses)
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+        add_to_file(self.name, list_pauses, "actions")
 
         print("  Pause Beats:", str(list_pauses[:2]).strip("]") + ", ..." + "]")

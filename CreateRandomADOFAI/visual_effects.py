@@ -2,6 +2,7 @@ from CreateRandomADOFAI.adofai_exceptions import FlashlightException
 from CreateRandomADOFAI.gameplay import Gameplay, INVIOLATE_TILES
 from random import randint, uniform, choice
 from CreateRandomADOFAI.handler import eases_find
+from CreateRandomADOFAI.event_objects import add_to_file, add_flashlights
 import config
 import json
 
@@ -45,23 +46,12 @@ class VisualEffects(Gameplay):
                 ease_choice = choice(ease_found)
 
             if num == 8:
-                list_flashlights.append({"floor": i,
-                                         "eventType": "Flash",
-                                         "duration": duration_random,
-                                         "plane": plane_random,
-                                         "startColor": "ffffff",
-                                         "startOpacity": start_opacity_random,
-                                         "endColor": "ffffff",
-                                         "endOpacity": end_opacity_random,
-                                         "angleOffset": 0,
-                                         "ease": ease_choice,
-                                         "eventTag": ""})
+                list_flashlights.append(add_flashlights(i, duration_random,
+                                                        plane_random,
+                                                        start_opacity_random,
+                                                        end_opacity_random,
+                                                        ease_choice))
 
-        with open(f"../levels/{self.name}.adofai", 'r+') as f:
-            data = json.load(f)
-            data["actions"].extend(list_flashlights)
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+        add_to_file(self.name, list_flashlights, "actions")
 
         print("  Flashlights:", str(list_flashlights[:2]).strip("]") + ", ..." + "]")
